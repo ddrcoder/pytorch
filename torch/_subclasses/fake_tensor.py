@@ -1,6 +1,5 @@
 import contextlib
 import functools
-import itertools
 import os
 import weakref
 from dataclasses import dataclass
@@ -19,10 +18,16 @@ from torch.overrides import TorchFunctionMode
 from torch.utils._mode_utils import no_dispatch
 from torch.utils._python_dispatch import TorchDispatchMode
 
-from torch.utils._pytree import PyTree, tree_flatten, tree_map, tree_map_only
+from torch.utils.pytree import (
+    PyTree,
+    tree_all_only,
+    tree_leaves,
+    tree_map,
+    tree_map_,
+    tree_map_only,
+)
 from torch.utils.weak import WeakIdRef
 
-pytree = torch.utils._pytree
 T = TypeVar("T")
 TensorWeakRef = Any
 
@@ -133,7 +138,7 @@ def torch_decomp_decompositions(func):
 
 
 def tree_flatten_only(ty: Type[T], pytree: PyTree):
-    flat_vals, _ = tree_flatten(pytree)
+    flat_vals = tree_leaves(pytree)
     return [elem for elem in flat_vals if isinstance(elem, ty)]
 
 
@@ -642,7 +647,7 @@ class FakeTensor(torch.Tensor):
             return NotImplemented
 
         fake_mode = None
-        for arg in itertools.chain(tree_flatten(args)[0], tree_flatten(kwargs)[0]):
+        for arg in tree_leaves((args, kwargs)):
             if isinstance(arg, FakeTensor):
                 if fake_mode is None:
                     fake_mode = arg.fake_mode
@@ -701,8 +706,8 @@ class FakeTensor(torch.Tensor):
                 f"Unhandled FakeTensor Device Propagation for {func}, found two different devices {common_device}, {t.device}"
             )
 
-        tree_map(merge_devices, args)
-        tree_map(merge_devices, kwargs)
+        tree_map_(merge_devices, args)
+        tree_map_(merge_devices, kwargs)
 
         # some functions that allow Python numbers to bind to Tensors
         # if we have failed to find a device, and we're running one of these operators,
@@ -852,7 +857,7 @@ class FakeTensorMode(TorchDispatchMode):
             and len(flat_arg_fake_tensors) != 0
             and not has_symbolic_sizes
         ):
-            const_args, const_kwargs = pytree.tree_map_only(
+            const_args, const_kwargs = tree_map_only(
                 FakeTensor, lambda t: t.constant, (args, kwargs)
             )
 
@@ -861,12 +866,12 @@ class FakeTensorMode(TorchDispatchMode):
             with no_dispatch():
                 out = func(*const_args, **const_kwargs)
 
-            all_constant = pytree.tree_all_only(
+            all_constant = tree_all_only(
                 torch.Tensor, lambda t: self.may_turn_const(t), out
             )
 
             if all_constant:
-                return pytree.tree_map_only(
+                return tree_map_only(
                     torch.Tensor,
                     lambda t: converter(self, t, make_constant=True),
                     out,
@@ -1120,7 +1125,7 @@ def run_fallback_kernel(fake_mode, func, args, kwargs, orig_not_implemented_exce
     tensor_impls = set()
     storages = set()
 
-    for e in tree_flatten((args, kwargs))[0]:
+    for e in tree_leaves((args, kwargs)):
         if isinstance(e, torch.Tensor):
             if not e.is_sparse:
                 storages.add(e._typed_storage()._cdata)
@@ -1129,7 +1134,7 @@ def run_fallback_kernel(fake_mode, func, args, kwargs, orig_not_implemented_exce
     # proper aliasing/metadata relationship between outputs and inputs will
     # not be set up, bc of conversion to device, unless we can reuse an
     # input impl
-    for e in tree_flatten(r)[0]:
+    for e in tree_leaves(r):
         if id(e) not in inp_impls and (
             isinstance(e, torch.Tensor)
             and not e.is_sparse

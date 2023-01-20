@@ -4,7 +4,7 @@ import unittest
 import torch
 from torch import nn
 from torch._dynamo.optimizations.torchxla_integration import GraphInputMatcher
-from torch.utils._pytree import tree_map_only
+from torch.utils.pytree import tree_map_only
 
 try:
     from .test_torchxla_util import maybe_skip_torchxla_test
