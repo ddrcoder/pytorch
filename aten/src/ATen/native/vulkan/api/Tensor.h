@@ -101,6 +101,13 @@ class vTensor final {
       const api::StorageType storage_type = api::StorageType::TEXTURE_3D,
       const c10::MemoryFormat memory_format = c10::MemoryFormat::Contiguous);
 
+  // Copy Constructor and Assignment
+  vTensor(const vTensor& other) noexcept;
+  vTensor& operator=(const vTensor& other) noexcept;
+
+  // Move Constructor
+  vTensor(vTensor&& other) noexcept;
+
   // Used for passing buffer sizes and strides data to shaders
   struct BufferMetadata {
     api::utils::uvec4 sizes;
@@ -269,15 +276,15 @@ class vTensor final {
     return c10::multiply_integers(sizes());
   }
 
+  inline size_t nbytes() const {
+    return c10::elementSize(dtype()) * numel();
+  }
+
   /*
    * Returns numel but based on gpu_sizes_ instead of sizes_
    */
   inline size_t gpu_numel() const {
     return view_->buffer_length_;
-  }
-
-  inline size_t nbytes() const {
-    return c10::elementSize(dtype()) * numel();
   }
 
   /*
