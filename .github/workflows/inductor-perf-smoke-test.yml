@@ -5,6 +5,9 @@ on:
     branches:
       - master
       - main
+    tags:
+      - ciflow/inductor/*
+
   pull_request:
     paths:
       - .github/workflows/inductor-perf-smoke-test.yml

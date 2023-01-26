@@ -1,0 +1,4 @@
+dev,name,batch_size,speedup,abs_latency,compilation_latency,compression_ratio
+cuda,hf_Albert,8,2.2663,30.5009,24.9170,1.0876
+cuda,timm_efficientdet,1,1.6305,79.2648,148.2659,0.96
+cuda,timm_vision_transformer,8,1.6224,18.0190,37.2132,0.6925
